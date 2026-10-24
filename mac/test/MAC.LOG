@@ -1,0 +1,8 @@
+[0 ms] MAC BLOB ENTERED
+[0 ms] allocating memory
+[0 ms] memory ok, loading ROM
+[0 ms] ROM step done, loading disk images
+[0 ms] disk images done
+[0 ms] screen init ok, WaitForRom
+[1505 ms] WaitForRom returned false
+[1505 ms] emulator init failed (ROM missing or bad?)

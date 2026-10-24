@@ -40,6 +40,13 @@ The emulated Mac II screen is 512x384 (256 colours, or 1-bit black and white whe
 scaled to fit the camera's 720x240 viewport (no scrolling): about 1.4x wider and 0.625x as tall, with an area filter
 for brightness and nearest-neighbour colour. The screen is redrawn at most about 16 times a second.
 
+## If the camera hangs or turns off
+The blob appends progress lines to **`MAC.LOG`** in the card root (after each init step, then an "alive" line every
+5 seconds). After a crash, read that file: the last line shows how far it got and how long it ran.
+Also set CHDK's "Disable LCD off" option (CHDK menu > Miscellaneous; the exact label varies) to *Always* so Canon's
+auto power-down and display-off don't fire while the emulator is running with no real key presses.
+The emulator hands about 20% of the CPU back to the camera's own tasks every 40 ms for the same reason.
+
 ## Known limits / risks
 * **Speed is unmeasured.** A Mac II class machine is slow, and System 7.5 is heavy for it.
 * **Disk images are opened read/write**, so changes (including System preferences) are saved into the image on the card.

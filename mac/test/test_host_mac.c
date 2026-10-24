@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "../src/mac_chdk_abi.h"
 extern mac_cb_t *g_cb;
 int mac_main(mac_cb_t *cb);
@@ -17,7 +19,11 @@ static unsigned int c_btn(void) { return 0; }
 static int c_jog(void) { return 0; }
 static void c_sleep(unsigned ms) { (void)ms; }
 static unsigned char *c_vp(void) { return vp; }
-static unsigned c_dummy_ticks(void){return 0;}
+static int c_open(const char *p, int m) { return open(p, m == 0 ? O_RDONLY : m == 1 ? (O_WRONLY|O_CREAT|O_TRUNC) : O_RDWR, 0666); }
+static int c_read(int fd, void *b, int n) { return read(fd, b, n); }
+static int c_write(int fd, const void *b, int n) { return write(fd, b, n); }
+static int c_seek(int fd, int o, int w) { return lseek(fd, o, w); }
+static int c_close(int fd) { return close(fd); }
 static void dump(const char *fn) {
     FILE *f = fopen(fn, "wb"); fprintf(f, "P6\n720 240\n255\n");
     for (int y = 0; y < 240; y++) for (int g = 0; g < 180; g++) {
@@ -35,6 +41,7 @@ int main(int argc, char **argv) {
     static mac_cb_t cb;
     if (argc > 1) limit_ms = atoi(argv[1]);
     cb.magic = MAC_ABI_MAGIC; cb.get_ticks_ms = c_ticks; cb.sleep_ms = c_sleep; cb.log = c_log; cb.should_quit = c_quit;
+    cb.f_open = c_open; cb.f_read = c_read; cb.f_write = c_write; cb.f_lseek = c_seek; cb.f_close = c_close;
     cb.get_buttons = c_btn; cb.get_jog = c_jog; cb.get_viewport = c_vp;
     g_cb = &cb; t0 = now_ms();
     int r = mac_main(&cb);

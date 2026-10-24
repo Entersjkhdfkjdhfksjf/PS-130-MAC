@@ -24,6 +24,38 @@ mac_cb_t *g_cb = NULL;
 
 #define CONSOLE_TRACE()
 
+/* Progress log: each line is appended to MAC.LOG on the card (and closed again), so it survives a
+   crash or power loss and can be read afterwards. */
+LOCALPROC FLog(const char *msg)
+{
+	char line[96];
+	int n = 0;
+	int fd;
+	unsigned int t = g_cb->get_ticks_ms();
+	/* "[12345 ms] message\n" built by hand: no stdio here */
+	{
+		char num[12];
+		int k = 0;
+		unsigned int v = t;
+		line[n++] = '[';
+		if (v == 0) { num[k++] = '0'; }
+		while (v > 0) { num[k++] = (char)('0' + v % 10); v /= 10; }
+		while (k > 0) { line[n++] = num[--k]; }
+		line[n++] = ' '; line[n++] = 'm'; line[n++] = 's'; line[n++] = ']'; line[n++] = ' ';
+	}
+	while (*msg && n < (int)sizeof(line) - 2) { line[n++] = *msg++; }
+	line[n++] = '\n';
+	fd = g_cb->f_open("MAC.LOG", 2);
+	if (fd < 0) { fd = g_cb->f_open("MAC.LOG", 1); }
+	if (fd >= 0) {
+		(void) g_cb->f_lseek(fd, 0, 2);
+		(void) g_cb->f_write(fd, line, n);
+		(void) g_cb->f_close(fd);
+	}
+	line[n - 1] = 0;   /* drop the newline for the on-screen log */
+	g_cb->log(line);
+}
+
 /* --- some simple utilities --- */
 
 GLOBALOSGLUPROC MyMoveBytes(anyp srcPtr, anyp destPtr, si5b byteCount)
@@ -927,9 +959,26 @@ LOCALPROC CheckForSystemEvents(void)
 	}
 }
 
+LOCALVAR ui5b LastYieldMs = 0;
+LOCALVAR ui5b LastBeatMs = 0;
+
+LOCALPROC YieldToCamera(void)
+{
+	ui5b now = g_cb->get_ticks_ms();
+	if ((now - LastYieldMs) >= 40) {
+		g_cb->sleep_ms(10);      /* ~20% of the CPU goes back to Canon's tasks */
+		LastYieldMs = g_cb->get_ticks_ms();
+	}
+	if ((now - LastBeatMs) >= 5000) {
+		LastBeatMs = now;
+		FLog("alive");
+	}
+}
+
 GLOBALOSGLUPROC WaitForNextTick(void)
 {
 label_retry:
+	YieldToCamera();
 	CheckForSystemEvents();
 	CheckForSavedTasks();
 	if (ForceMacOff) {
@@ -1022,17 +1071,18 @@ LOCALPROC ZapOSGLUVars(void)
 
 LOCALFUNC blnr InitOSGLU(void)
 {
-	if (AllocMyMemory())
-	if (LoadMacRom())
-	if (LoadInitialImages())
-	if (InitLocationDat())
-	if (Screen_Init())
-	if (WaitForRom())
-	{
-		return trueblnr;
-	}
-
-	return falseblnr;
+	FLog("allocating memory");
+	if (! AllocMyMemory()) { FLog("AllocMyMemory failed"); return falseblnr; }
+	FLog("memory ok, loading ROM");
+	if (! LoadMacRom()) { FLog("LoadMacRom failed"); return falseblnr; }
+	FLog("ROM step done, loading disk images");
+	if (! LoadInitialImages()) { FLog("LoadInitialImages failed"); return falseblnr; }
+	FLog("disk images done");
+	if (! InitLocationDat()) { return falseblnr; }
+	if (! Screen_Init()) { return falseblnr; }
+	FLog("screen init ok, WaitForRom");
+	if (! WaitForRom()) { FLog("WaitForRom returned false"); return falseblnr; }
+	return trueblnr;
 }
 
 LOCALPROC UnInitOSGLU(void)
@@ -1061,16 +1111,16 @@ int mac_main(mac_cb_t *cb)
 #endif
 	g_cb = cb;
 	if (cb->magic != MAC_ABI_MAGIC) { return -1; }
-	cb->log("MAC BLOB ENTERED");
+	FLog("MAC BLOB ENTERED");
 
 	ZapOSGLUVars();
 
 	if (InitOSGLU()) {
-		cb->log("entering ProgramMain");
+		FLog("init ok, entering ProgramMain");
 		ProgramMain();
-		cb->log("left ProgramMain");
+		FLog("left ProgramMain");
 	} else {
-		cb->log("emulator init failed (ROM missing?)");
+		FLog("emulator init failed (ROM missing or bad?)");
 	}
 
 	UnInitOSGLU();
