@@ -28,7 +28,10 @@ for f in OSGLUCHD GLOBGLUE M68KITAB MINEM68K VIAEMDEV VIA2EMDV IWMEMDEV SCCEMDEV
          SCSIEMDV SONYEMDV SCRNEMDV VIDEMDEV MOUSEMDV ADBEMDEV ASCEMDEV PROGMAIN; do
   arm-none-eabi-gcc $CF -o "$OBJ/$f.o" "$MVM/src/$f.c"
 done
-arm-none-eabi-gcc $CF -o "$OBJ/mac_syscalls.o" "$HERE/src/mac_syscalls.c"
+# NB: -fno-builtin etc. are required here: otherwise GCC turns calloc's "malloc + zero loop" back into a
+# call to calloc itself (an endless loop on the camera).
+arm-none-eabi-gcc $CF -fno-builtin -fno-tree-loop-distribute-patterns -fno-optimize-strlen \
+  -o "$OBJ/mac_syscalls.o" "$HERE/src/mac_syscalls.c"
 
 LIBC="$TC/arm-none-eabi/lib/arm/v5te/softfp/libc.a"
 LIBGCC="$(ls "$TC"/lib/gcc/arm-none-eabi/*/arm/v5te/softfp/libgcc.a | head -1)"

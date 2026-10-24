@@ -3,3 +3,4 @@ mac/MAC.BIN
 mac/test/host_mac
 mac/test/host_mac_asan
 mac/test/vp.ppm
+mac/test/MAC.LOG
