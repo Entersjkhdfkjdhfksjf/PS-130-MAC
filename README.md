@@ -45,7 +45,7 @@ about 1.4x wider and 0.7x as tall, with an area filter for brightness. It is red
 
 ## Disk images
 They are opened read/write and the Mac saves into them, so **keep a backup copy of every image**. Never pull the battery
-while the Mac is running; quit with the face button. (Versions before 8da5ed2+1 had a bug that wiped any disk image
+while the Mac is running; quit with the face button. (Builds before commit be1753b had a bug that wiped any disk image
 to 0 bytes and created empty `disk2.dsk`...`disk6.dsk`; if you ran one, restore your image from your original and delete those empty files.)
 
 ## If the camera hangs or turns off
