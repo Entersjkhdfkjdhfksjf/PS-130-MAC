@@ -43,6 +43,11 @@ No full keyboard yet (an on-screen keyboard is next), no sound.
 The emulated screen (512x342 black and white on the Plus) is scaled to fit the camera's 720x240 viewport (no scrolling):
 about 1.4x wider and 0.7x as tall, with an area filter for brightness. It is redrawn at most about 16 times a second.
 
+## Disk images
+They are opened read/write and the Mac saves into them, so **keep a backup copy of every image**. Never pull the battery
+while the Mac is running; quit with the face button. (Versions before 8da5ed2+1 had a bug that wiped any disk image
+to 0 bytes and created empty `disk2.dsk`...`disk6.dsk`; if you ran one, restore your image from your original and delete those empty files.)
+
 ## If the camera hangs or turns off
 The blob appends progress lines to **`MAC.LOG`** (including any message Mini vMac itself shows) in the card root (after each init step, then an "alive" line every
 5 seconds). After a crash, read that file: the last line shows how far it got and how long it ran.

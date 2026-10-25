@@ -59,7 +59,18 @@ void *_calloc_r(void *r, size_t a, size_t b) { (void)r; return calloc(a, b); }
 void *_realloc_r(void *r, void *p, size_t n) { (void)r; return realloc(p, n); }
 
 // fd 0/1/2 reserved for console; real files use launcher fds offset by 3.
-int _open(const char *n, int f, int m) { (void)m; int fd = g_cb->f_open(n, (f & 3) != 0); return fd < 0 ? -1 : fd + 3; }
+// Launcher open modes: 0 = read only, 1 = write (create + truncate), 2 = read/write of an EXISTING file.
+// Careful: "rb+" (O_RDWR, no O_CREAT/O_TRUNC) must NOT truncate or create anything: disk images are opened that way.
+// (An earlier version mapped every write-capable open to "create + truncate" and wiped disk images.)
+#include <fcntl.h>
+int _open(const char *n, int f, int m) {
+    int mode;
+    (void)m;
+    if ((f & O_ACCMODE) == O_RDONLY)       mode = 0;
+    else if (f & (O_CREAT | O_TRUNC))      mode = 1;
+    else                                   mode = 2;
+    { int fd = g_cb->f_open(n, mode); return fd < 0 ? -1 : fd + 3; }
+}
 int _close(int fd)                     { return fd >= 3 ? g_cb->f_close(fd - 3) : 0; }
 int _read (int fd, char *b, int n)     { return fd >= 3 ? g_cb->f_read (fd - 3, b, n) : 0; }
 // console (fd 0/1/2): buffer DOOM's printf/errors line by line -> on-screen log
@@ -95,9 +106,9 @@ int mkdir (const char *p, mode_t m)    { (void)p; (void)m; return 0; }
 // launcher's file callbacks (which flatten paths to the card root and add O_CREAT|O_TRUNC on
 // write). Good enough: the destination is created/overwritten; the temp source is left behind.
 int rename(const char *oldp, const char *newp) {
-    int fi = _open(oldp, 0, 0);          // O_RDONLY
+    int fi = _open(oldp, O_RDONLY, 0);
     if (fi < 0) return -1;
-    int fo = _open(newp, 1, 0777);       // O_WRONLY -> launcher adds O_CREAT|O_TRUNC
+    int fo = _open(newp, O_WRONLY | O_CREAT | O_TRUNC, 0777);   // create + truncate
     if (fo < 0) { _close(fi); return -1; }
     char buf[512]; int n, ok = 1;
     while ((n = _read(fi, buf, sizeof buf)) > 0)

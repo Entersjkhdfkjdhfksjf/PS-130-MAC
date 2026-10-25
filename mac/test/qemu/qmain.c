@@ -16,7 +16,9 @@ static void t_sleep(unsigned ms) { unsigned t0 = t_ms(); while (t_ms() - t0 < ms
 extern const unsigned char rom_start[], rom_end[];
 static unsigned rom_pos;
 static int  f_open_(const char *p, int m) {
-    const char *r = "MacII.ROM"; int i = 0; (void)m;
+    const char *r = "MacII.ROM"; int i = 0;
+    puts_("qemu: open "); puts_(p); puts_(" mode "); UART = (unsigned char)('0' + m); puts_("\n");
+    if (p[0] == 'T' && p[1] == '-') return -1;
     while (r[i] && p[i] == r[i]) i++;
     if (!r[i] && !p[i]) { rom_pos = 0; return 7; }
     return -1;
@@ -76,6 +78,14 @@ void qmain(void) {
     cb.f_open = f_open_; cb.f_read = f_rw; cb.f_write = (int (*)(int, const void *, int))f_rw; cb.f_lseek = f_seek; cb.f_close = f_close_;
     cb.get_buttons = btn; cb.get_jog = jog; cb.get_viewport = vp;
     cb.arena = (char *)end; cb.arena_size = 0x03105260 - end;
+    {   /* disk images are opened "rb+": that must reach the launcher as mode 2, never 1 (create+truncate) */
+        extern mac_cb_t *g_cb; extern int _open(const char *, int, int);
+        g_cb = &cb;
+        _open("T-rdonly", 0, 0);              /* fopen "rb"  */
+        _open("T-rdwr(rb+)", 2, 0);           /* fopen "rb+" */
+        _open("T-wronly+creat+trunc(wb)", 1 | 0x200 | 0x400, 0);   /* fopen "wb"  */
+        _open("T-rdwr+creat+trunc(w+)", 2 | 0x200 | 0x400, 0);     /* fopen "w+"  */
+    }
     puts_("qemu: blob_end="); putx(end); puts_(" arena="); putx(cb.arena_size); puts_("\n");
     (void)hdr;
     int r = mac_main(&cb);
