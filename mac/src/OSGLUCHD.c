@@ -425,6 +425,9 @@ LOCALVAR ui3b Ytab[256];
 LOCALVAR si3b Utab[256];
 LOCALVAR si3b Vtab[256];
 LOCALVAR ui5b LastDrawMs = 0;
+LOCALVAR ui5b DrawCount = 0;
+LOCALVAR ui5b DrawMsTotal = 0;
+LOCALVAR ui5b LoopCount = 0;
 
 /* horizontal map: dst x -> two source columns and a weight (0..256) for the first */
 LOCALVAR ui4b MapC0[VP_W];
@@ -575,6 +578,11 @@ LOCALFUNC ui3p GetHRow(int r)
 	return dst;
 }
 
+LOCALPROC NoScreenLog(const char *s)
+{
+	(void) s;
+}
+
 LOCALPROC DrawViewportRows(int y0, int y1)
 {
 	unsigned char *vp = g_cb->get_viewport();
@@ -582,6 +590,7 @@ LOCALPROC DrawViewportRows(int y0, int y1)
 	if (NULL == vp) {
 		return;
 	}
+	g_cb->log = NoScreenLog;   /* the on-screen log would paint over the Mac screen; MAC.LOG still works */
 	for (y = y0; y < y1; ++y) {
 		unsigned char *d = vp + y * VP_BW;
 		ui3b yrow[VP_W];
@@ -611,6 +620,22 @@ LOCALPROC DrawViewportRows(int y0, int y1)
 			}
 		}
 		/* chroma: nearest source row/columns (the eye mostly sees luma) */
+#if 0 != vMacScreenDepth
+		if (! UseColorMode)
+#endif
+		{
+			/* black and white: no colour information at all */
+			for (x = 0; x < VP_W; x += 4) {
+				d[0] = 0;
+				d[1] = yrow[x];
+				d[2] = 0;
+				d[3] = yrow[x + 1];
+				d[4] = yrow[x + 2];
+				d[5] = yrow[x + 3];
+				d += 6;
+			}
+			continue;
+		}
 		crow = SourceRow(MapRC[y]);
 		for (x = 0; x < VP_W; x += 4) {
 			ui3r q0 = crow[MapCenter[x]];
@@ -653,6 +678,8 @@ LOCALPROC MyDrawChangesAndClear(void)
 			HaveChangedScreenBuff(ScreenChangedTop, ScreenChangedLeft,
 				ScreenChangedBottom, ScreenChangedRight);
 			ScreenClearChanges();
+			++DrawCount;
+			DrawMsTotal += g_cb->get_ticks_ms() - now;
 		}
 	}
 }
@@ -682,6 +709,19 @@ LOCALVAR ui4b HoldDown = 0;
 LOCALVAR ui4b HoldLeft = 0;
 LOCALVAR ui4b HoldRight = 0;
 LOCALVAR blnr LastCtrlClick = falseblnr;
+LOCALVAR int TapKey = -1;
+LOCALVAR int TapTicks = 0;
+LOCALVAR blnr PrevDisp = falseblnr;
+LOCALVAR blnr PrevShoot = falseblnr;
+
+LOCALPROC StartTap(int mkc)
+{
+	if (TapKey < 0) {
+		TapKey = mkc;
+		TapTicks = 4;
+		Keyboard_UpdateKeyMap2(mkc, trueblnr);
+	}
+}
 
 LOCALFUNC si4b StepFor(ui4b hold)
 {
@@ -723,6 +763,19 @@ LOCALPROC CheckMouseState(void)
 	if (right != LastCtrlClick) {
 		LastCtrlClick = right;
 		Keyboard_UpdateKeyMap2(MKC_Control, right);
+	}
+
+	{
+		blnr disp = (0 != (b & BTN_DISP));
+		blnr shoot = (0 != (b & BTN_SHOOT));
+		if (disp && ! PrevDisp) { StartTap(MKC_C); }
+		if (shoot && ! PrevShoot) { StartTap(MKC_Return); }
+		PrevDisp = disp;
+		PrevShoot = shoot;
+		if (TapKey >= 0 && --TapTicks <= 0) {
+			Keyboard_UpdateKeyMap2(TapKey, falseblnr);
+			TapKey = -1;
+		}
 	}
 
 	HaveMouseMotion = trueblnr;
@@ -849,8 +902,8 @@ LOCALPROC CheckSavedMacMsg(void)
 		NativeStrFromCStr(briefMsg0, SavedBriefMsg);
 		NativeStrFromCStr(longMsg0, SavedLongMsg);
 
-		g_cb->log(briefMsg0);
-		g_cb->log(longMsg0);
+		FLog(briefMsg0);
+		FLog(longMsg0);
 
 		SavedBriefMsg = nullpr;
 	}
@@ -975,8 +1028,10 @@ LOCALPROC YieldToCamera(void)
 		LastBeatMs = now;
 		{
 			char b[64];
-			(void) sprintf(b, "alive ticks=%lu behind=%lu", (unsigned long)TrueEmulatedTime,
-				(unsigned long)BehindCount);
+			(void) sprintf(b, "alive t=%lu beh=%lu lp=%lu dr=%lu drms=%lu msg=%d",
+				(unsigned long)TrueEmulatedTime, (unsigned long)BehindCount,
+				(unsigned long)LoopCount, (unsigned long)DrawCount,
+				(unsigned long)DrawMsTotal, (int)MacMsgDisplayed);
 			FLog(b);
 		}
 	}
@@ -985,6 +1040,7 @@ LOCALPROC YieldToCamera(void)
 GLOBALOSGLUPROC WaitForNextTick(void)
 {
 label_retry:
+	++LoopCount;
 	YieldToCamera();
 	CheckForSystemEvents();
 	CheckForSavedTasks();

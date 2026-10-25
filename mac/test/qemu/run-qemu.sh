@@ -8,6 +8,11 @@ TC="$(dirname "$(command -v arm-none-eabi-gcc)")/.."
 cd "$HERE"
 SHIFT="${ICOUNT:-3}"   # virtual ns per ARM instruction = 2^SHIFT (3 = 125 MIPS, 4 = 62 MIPS)
 CF="-c -march=armv5te -mtune=arm946e-s -O2 -w -DICOUNT_SHIFT=$SHIFT"
+# optional: ICOUNT bench build of the platform layer (times full-screen redraws)
+if [ -n "$BENCH" ]; then
+  arm-none-eabi-gcc -c -march=armv5te -mtune=arm946e-s -O2 -ffunction-sections -w -DMAC_BENCH -Ibuild/minivmac/cfg -Ibuild/minivmac/src -Isrc \
+    -o build/obj/OSGLUCHD.o build/minivmac/src/OSGLUCHD.c
+fi
 arm-none-eabi-gcc $CF -o build/obj/q_start.o test/qemu/start.S
 arm-none-eabi-gcc $CF -o build/obj/q_qmain.o test/qemu/qmain.c
 LIBC="$TC/arm-none-eabi/lib/thumb/nofp/libc.a"

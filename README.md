@@ -1,25 +1,27 @@
-# Classic Mac (Mac II, colour) on a Canon PowerShot SX130 IS
+# Classic Mac (Mac Plus, System 6) on a Canon PowerShot SX130 IS
 
-[Mini vMac](https://www.gryphel.com/c/minivmac/)'s colour **Mac II** emulation (68020, 256 colours, 8MB RAM) running on
-the camera as a CHDK module. Same method as the sibling projects
-[PS130-doom](https://github.com/Entersjkhdfkjdhfksjf/PS130-doom) and
-[PS130-ELKS](https://github.com/Entersjkhdfkjdhfksjf/PS130-ELKS): a small CHDK launcher loads a flat blob
-into the idle raw buffer and jumps into it. Canon's firmware is never modified.
+[Mini vMac](https://www.gryphel.com/c/minivmac/) running on the camera as a CHDK module. Default model: the original-style
+**Mac Plus** (68000, 512x342 black and white, 4MB), which is what System 6 was made for. A colour **Mac II** build
+(256 colours, 8MB, System 7) is also included, but it ran at roughly a quarter of real speed on the camera, so Plus is the default.
 
-**Status: first milestone, NOT yet tested on the camera, and not yet booted with a real ROM** (see below).
-What has been verified on a PC: the Mini vMac Mac II core builds for the camera's ARM9 and runs with the camera
-platform layer, and the screen scaler/colour path works (Mini vMac's own "Unable to locate ROM image" screen
-comes out readable on the 720x240 viewport).
+Same method as the sibling projects [PS130-doom](https://github.com/Entersjkhdfkjdhfksjf/PS130-doom) and
+[PS130-ELKS](https://github.com/Entersjkhdfkjdhfksjf/PS130-ELKS): a small CHDK launcher loads a flat blob into the
+idle raw buffer and jumps into it. Canon's firmware is never modified.
+
+**Status: the Mac II build has run on the camera (it reached Mini vMac's own message screen). The Plus build has not been
+tried on the camera yet, nor booted with a Plus ROM (none available to test with).**
 
 ## What you need to supply
 I can't ship these:
-* **`MacII.ROM`**: a 256KB Mac II (or IIx / SE/30) ROM image.
-* **`disk1.dsk`**: a bootable System 7.x disk image (System 7.5.x is the practical ceiling for a Mac II class machine;
-  Mac OS 8 needs a 68040 Mac and Mac OS 9 needs a PowerPC, neither is possible here). More disks can be `disk2.dsk` ...
+* **`vMac.ROM`**: a 128KB **Mac Plus** ROM (version 3, checksum `4D1F8172`). Other models' ROMs don't work with this build
+  (a Mac II ROM is for the Mac II build, which wants it named `MacII.ROM`).
+* **`disk1.dsk`**: a bootable System 6 disk image (800KB floppy, raw sector image; System 6.0.8 is the classic choice).
+  More disks can be `disk2.dsk` ... (up to six).
 
 ## Install
-SD card root: `MAC.BIN` (from `mac/prebuilt/`), `MacII.ROM`, `disk1.dsk`.
+SD card root: `MAC.BIN` (from `mac/prebuilt/`), `vMac.ROM`, `disk1.dsk`.
 `CHDK/MODULES/mac.flt` (from `mac/prebuilt/`).
+For the colour Mac II instead: use `mac/prebuilt/MAC-II.BIN` renamed to `MAC.BIN`, plus `MacII.ROM`.
 Needs CHDK 1.6.x for `sx130is` firmware `101f` (tested build: 1.6.1 rev 6315).
 Boot the camera in PLAYBACK mode, enter ALT mode, then MENU > Games > MAC.
 
@@ -31,17 +33,18 @@ Boot the camera in PLAYBACK mode, enter ALT mode, then MENU > Games > MAC.
 | Zoom lever, wide (out) | Left click (hold = drag) |
 | Zoom lever, tele (in) | Right click (a Control-click on a classic Mac) |
 | SET | Left click (same as zoom out) |
+| DISP | Press the `C` key (dismisses Mini vMac's message boxes) |
+| Shutter (full press) | Press Return |
 | Face button | Quit back to CHDK |
 
-No keyboard yet (an on-screen keyboard is next), no sound.
+No full keyboard yet (an on-screen keyboard is next), no sound.
 
 ## How the screen works
-The emulated Mac II screen is 512x384 (256 colours, or 1-bit black and white when the Mac switches to it). It is
-scaled to fit the camera's 720x240 viewport (no scrolling): about 1.4x wider and 0.625x as tall, with an area filter
-for brightness and nearest-neighbour colour. The screen is redrawn at most about 16 times a second.
+The emulated screen (512x342 black and white on the Plus) is scaled to fit the camera's 720x240 viewport (no scrolling):
+about 1.4x wider and 0.7x as tall, with an area filter for brightness. It is redrawn at most about 16 times a second.
 
 ## If the camera hangs or turns off
-The blob appends progress lines to **`MAC.LOG`** in the card root (after each init step, then an "alive" line every
+The blob appends progress lines to **`MAC.LOG`** (including any message Mini vMac itself shows) in the card root (after each init step, then an "alive" line every
 5 seconds). After a crash, read that file: the last line shows how far it got and how long it ran.
 Also set CHDK's "Disable LCD off" option (CHDK menu > Miscellaneous; the exact label varies) to *Always* so Canon's
 auto power-down and display-off don't fire while the emulator is running with no real key presses.

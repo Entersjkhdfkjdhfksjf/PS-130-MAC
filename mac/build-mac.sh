@@ -14,20 +14,29 @@ PIN=f403ffba150ace0b0ba4d713b65f5e6625b88252
 if [ ! -d "$MVM/.git" ]; then git clone -q https://github.com/erichelgeson/minivmac.git "$MVM"; fi
 (cd "$MVM" && git checkout -q "$PIN" 2>/dev/null || true)
 
-# 1. generate the configuration (Mac II, 512x384, 256 colours, 8MB, no sound/FPU tweaks)
+# 1. generate the configuration. MODEL=Plus (default): original-style Mac Plus, 512x342 black and white,
+#    4MB, System 6 era, ROM "vMac.ROM" (128KB). MODEL=II: colour Mac II, 512x384, 256 colours, 8MB, "MacII.ROM".
+MODEL="${MODEL:-Plus}"
+if [ "$MODEL" = II ]; then
+  MOPTS="-m II -hres 512 -vres 384 -depth 3 -mf 2 -magnify 0 -em-cpu 2 -mem 8M -sound 0"
+else
+  MOPTS="-m Plus -magnify 0 -mem 4M -sound 0"
+fi
 gcc -O1 -w -o "$OUT/mvsetup" "$MVM/setup/tool.c"
-( cd "$MVM" && "$OUT/mvsetup" -t ndsa -m II -hres 512 -vres 384 -depth 3 -mf 2 -magnify 0 \
-    -em-cpu 2 -mem 8M -sound 0 -n mvchd > "$OUT/gen.sh" && bash "$OUT/gen.sh" > "$OUT/gen.log" 2>&1 )
+( cd "$MVM" && "$OUT/mvsetup" -t ndsa $MOPTS -n mvchd > "$OUT/gen.sh" && bash "$OUT/gen.sh" > "$OUT/gen.log" 2>&1 )
 
 # 2. our platform layer replaces the DS one
 cp "$HERE/src/OSGLUCHD.c" "$MVM/src/OSGLUCHD.c"
 
 CF="-c -march=armv5te -mtune=arm946e-s -O2 -ffunction-sections -w -I$MVM/cfg -I$MVM/src -I$HERE/src"
 OBJ="$OUT/obj"; rm -rf "$OBJ"; mkdir -p "$OBJ"
-for f in OSGLUCHD GLOBGLUE M68KITAB MINEM68K VIAEMDEV VIA2EMDV IWMEMDEV SCCEMDEV RTCEMDEV ROMEMDEV \
-         SCSIEMDV SONYEMDV SCRNEMDV VIDEMDEV MOUSEMDV ADBEMDEV ASCEMDEV PROGMAIN; do
+# the emulated hardware modules differ per model (e.g. KBRDEMDV for the Plus, ADBEMDEV/VIDEMDEV for the II):
+# take the list from the Makefile the setup tool generated
+SRCS=$(sed -n 's#^bld/\([A-Za-z0-9_]*\)\.o:.*#\1#p' "$MVM/Makefile" | grep -v '^OSGLUNDS$')
+for f in OSGLUCHD $SRCS; do
   arm-none-eabi-gcc $CF -o "$OBJ/$f.o" "$MVM/src/$f.c"
 done
+
 # NB: -fno-builtin etc. are required here: otherwise GCC turns calloc's "malloc + zero loop" back into a
 # call to calloc itself (an endless loop on the camera).
 arm-none-eabi-gcc $CF -fno-builtin -fno-tree-loop-distribute-patterns -fno-optimize-strlen \
