@@ -734,6 +734,7 @@ LOCALPROC CheckMouseState(void)
 /* --- time --- */
 
 LOCALVAR ui5b TrueEmulatedTime = 0;
+LOCALVAR ui5b BehindCount = 0;
 
 #include "DATE2SEC.h"
 
@@ -807,6 +808,7 @@ LOCALPROC UpdateTrueEmulatedTime(void)
 		if (TimeDiff > 4 * MyInvTimeStep) {
 			/* emulation fell behind: run slower instead of racing to catch up */
 			++TrueEmulatedTime;
+			++BehindCount;
 			InitNextTime();
 		} else {
 			do {
@@ -971,7 +973,12 @@ LOCALPROC YieldToCamera(void)
 	}
 	if ((now - LastBeatMs) >= 5000) {
 		LastBeatMs = now;
-		FLog("alive");
+		{
+			char b[64];
+			(void) sprintf(b, "alive ticks=%lu behind=%lu", (unsigned long)TrueEmulatedTime,
+				(unsigned long)BehindCount);
+			FLog(b);
+		}
 	}
 }
 

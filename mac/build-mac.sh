@@ -33,8 +33,9 @@ done
 arm-none-eabi-gcc $CF -fno-builtin -fno-tree-loop-distribute-patterns -fno-optimize-strlen \
   -o "$OBJ/mac_syscalls.o" "$HERE/src/mac_syscalls.c"
 
-LIBC="$TC/arm-none-eabi/lib/arm/v5te/softfp/libc.a"
-LIBGCC="$(ls "$TC"/lib/gcc/arm-none-eabi/*/arm/v5te/softfp/libgcc.a | head -1)"
+# Thumb "nofp" libraries: the only variant without VFP instructions (the camera's ARM946E-S has no FPU).
+LIBC="$TC/arm-none-eabi/lib/thumb/nofp/libc.a"
+LIBGCC="$(ls "$TC"/lib/gcc/arm-none-eabi/*/thumb/nofp/libgcc.a | head -1)"
 arm-none-eabi-gcc -nostartfiles -nostdlib -Wl,-T,"$HERE/src/mac_blob.ld" -Wl,-Map,"$OUT/mac_blob.map" \
   -o "$OUT/mac_blob.elf" -Wl,--start-group "$OBJ"/*.o "$LIBC" "$LIBGCC" -Wl,--end-group
 arm-none-eabi-objcopy -O binary "$OUT/mac_blob.elf" "$HERE/MAC.BIN"

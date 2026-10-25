@@ -4,3 +4,5 @@ mac/test/host_mac
 mac/test/host_mac_asan
 mac/test/vp.ppm
 mac/test/MAC.LOG
+mac/test/MacII.ROM
+mac/test/*.dsk

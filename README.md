@@ -62,6 +62,9 @@ Toolchain: [xPack arm-none-eabi-gcc 11.3.1](https://github.com/xpack-dev-tools/a
 * Launcher: inside a CHDK trunk checkout copy `mac/src/gui_mac.c` and `mac/src/mac_chdk_abi.h` to `modules/games/`, use
   `chdk-tree/makefile_usermodules.inc` as `modules/makefile_usermodules.inc`, then
   `make PLATFORM=sx130is PLATFORMSUB=101f fir` (serial) and take `modules/.o/mac.flt`.
+* **No FPU:** the camera's ARM946E-S has no floating-point unit, and the toolchain's ARM-mode libraries are built with VFP
+  instructions (e.g. `sprintf` starts with `vpush`, an undefined instruction here). `build-mac.sh` therefore links the Thumb
+  `nofp` libraries, and the finished blob has zero VFP instructions.
 * ARM test: `mac/test/qemu/run-qemu.sh` runs the real ARM blob under QEMU's ARM946E-S (the camera's core) with stub callbacks. It caught a
   hang that the PC test could not: GCC turned `calloc` (malloc + zero loop) into a call to itself, an endless loop on the camera.
 * PC test: `mac/test/run-host.sh` builds the same core + platform layer as a 32-bit PC program (needs `gcc -m32`) and
